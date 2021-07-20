@@ -10,8 +10,7 @@ heriet
 
 # 今日話すこと
 
-- RDBMSの基礎
-- 探索の基礎
+- RDBMSと検索（探索）の基礎
 - B-treeの基礎
 - RDBMSのB-treeインデックス
 
@@ -124,6 +123,8 @@ https://ja.wikipedia.org/wiki/二分探索
 
 要はソート済みのデータを用意すれば、大小比較で高速に探索できるよねという話
 
+see [Binary and Linear Search Visualization](https://www.cs.usfca.edu/~galles/visualization/Search.html)
+
 ---
 
 # RDBMSが取り扱うデータの性質
@@ -146,9 +147,11 @@ https://ja.wikipedia.org/wiki/二分探索
 
 ![](images/bst.drawio.svg)
 
-- 左の子 ≦ 親 ≦ 右の子 を常に満たす二分木
+- 左の子 ≦ 親 ≦ 右の子 を常に満たす**二分木**
+    - 木構造で子が2つのものが二分木。二部探索木は二分木の一種
 - 木構造を追うことで二分探索出来る
     - 5を探索するコストは3
+- see [Binary Search Tree Visualization](https://www.cs.usfca.edu/~galles/visualization/BST.html)
 
 ---
 
@@ -168,7 +171,7 @@ https://ja.wikipedia.org/wiki/二分探索
 - ノード挿入または削除時に、2ノードが連続して子を持たないとき**ピボット**させる
 - ピボット
     - 中心のノードを親に昇格し、前後のノードをそれぞれ子にする
-- バランシングにより平衡な状態を保った二分探索木を平衡二分探索木という
+- バランシングにより平衡な状態を保った二分探索木を**平衡二分探索木**という
 
 ---
 
@@ -186,13 +189,13 @@ https://ja.wikipedia.org/wiki/二分探索
 
 # B-tree
 
-- B-treeのBが何の意味なのかは不明（論文書いた人が明言してないので）
 - 1つのノードが**最大N個の値**を持ち、**最大N+1個のポインタ**を保持する
     - i番目のポインタはi番目の値より小さい値を持つ子を指す
     - i+1番目のポインタはi番目の値より大きい値を持つ子を指す
 - ソート済みの平衡木
     - **スプリット**や**マージ**、**リバランス**により平衡状態が保たれる
 - B-treeのファンアウトが2のときは**平衡二分探索木**
+- see [B-Tree Visualization](https://www.cs.usfca.edu/~galles/visualization/BTree.html)
 
 ![](images/b-tree.drawio.svg)
 
@@ -219,7 +222,6 @@ https://ja.wikipedia.org/wiki/二分探索
 
 
 - 値が少ないが、隣接ノードに移せない場合は**リバランス**（次ページ）
-
 
 ---
 
@@ -250,19 +252,23 @@ https://ja.wikipedia.org/wiki/二分探索
 
 # B+tree
 
-- B-treeの亜種の一つで、値をリーフノードのみが持つもの
-    - 中間ノードが持つのはセパレートキー
+- B-treeの亜種の一つで、値をリーフノード（Leaf Node）のみが持つもの
+    - ルートノード（Root Node）と中間ノード（Internal Node）が持つのはセパレートキー
+- see [B+ Tree Visualization](https://www.cs.usfca.edu/~galles/visualization/BPlusTree.html)
 
-図
+![](images/b-plus-tree.drawio.svg)
+
 
 ---
 
-# RDBMSでB+treeを使う理由
+# B+treeとSliblingポインタ
 
-- B+treeにSliblingポインタを追加し、リーフノードをまたぐ探索時にリーフノードを読み込むだけでよくなる
-    - B-treeだと親ノードの値を読む必要があり、非効率
+- RDBMSの実装では、更にノードにSliblingポインタをもたせることが多い（双方向または単方向）
+    - 隣のリーフノードへのポインタ
+- B+treeにSliblingポインタを追加すると、リーフノードをまたぐ探索時に親を読む必要がなくなる
+    - B-treeだと親ノードの値を都度読む必要があり、ブロックデバイスのI/O的に非効率になる
 
-図
+![](images/b-plus-tree-sliblings.drawio.svg)
 
 ---
 
@@ -276,39 +282,60 @@ https://ja.wikipedia.org/wiki/二分探索
 
 # ページ
 
-- RDBMSでインデックスを扱う場合、各ノードは固定長でブロックサイズの整数倍にすることが多い
+- RDBMSでインデックスを扱う場合、各ノードは固定長（ブロックサイズの整数倍）にすることが多い
     - I/O効率が最も良いので
     - この文脈ではノードのことを**ページ**とも呼ぶ
+    - RDBMSはページ単位で各種I/O処理を行う
 - ページのサイズが決まれば、自ずと各ノードが保持可能なキーの数が決まる
-- RDBMSの実装上は、ページにはキーとポインタ以外のデータも持つことになる
+    - ページサイズが大きければ1ノードにキーをたくさん保持できる
+        - データ数が多い場合は、ページサイズが大きいほうが処理効率がいい
+        - 逆に、データ数が少ない場合は、ページが大きいと無駄な記憶領域を消費する
+- RDBMSの実装上は、ページにはキーとポインタ以外にも**管理上のメタデータ**も持つことになる
 
 ---
 
 # B+treeインデックスの実装（PostgreSQL）
 
-表
+https://www.postgresql.org/docs/12/storage-page-layout.html
+
+- PostgreSQLでは1ページが8192byte
+- Special spaceにSliblingポインタなどインデックスに必要な様々な情報が詰まっているらしい
 
 ---
 
-# B+treeインデックスの実装（MySQL）
+# PostgreSQL ファストパス
 
-余裕があれば
+- AUTO INNCREMENTなど値が単調増加する場合の最適化の一つ
+- 挿入する最も右端のノードを保持しておき、ルートノードや中間ノード探索をスキップする
+    - [postgres/nbtinsert.c](https://github.com/postgres/postgres/blob/bf491a9073e12ce1fc3e6facd0ae1308534df570/src/backend/access/nbtree/nbtinsert.c#L127-L144)
+
+![](images/postgresql-fast-path.drawio.svg)
+
 
 ---
 
-# 右側限定の追加
+# まとめ
 
-余裕があれば
+- **B-tree（B+tree）** は探索に適したデータ構造の一つ
+- 多くのRDBMSはB-tree（B+tree）でインデックスを作成することで検索効率向上を図っている
+- 基本的な理論はB-treeだが、RDBMSの要件に合わせて**様々な最適化実装**がある
+    - そのへんの細かくて難しい話は今回紹介しきれてないがまあもっとたくさんある
 
 ---
 
 # 参考文献
 
-- 詳説データベース
-    - 今日話したことはだいたいこの本に載ってる。誰か輪読会して欲しい
-- ハイパフォーマンスMySQL
-    - MySQLのB-tree実装について載ってる
-- ページファイル仕様
-    - [PostgreSQL](https://www.postgresql.org/docs/12/storage-page-layout.html)
-    - [MySQL InnoDB](https://dev.mysql.com/doc/internals/en/innodb-page-header.html)
-    - [SQLite](https://www.sqlite.org/fileformat.html)
+- 全般
+    - [詳説 データベース](https://www.oreilly.co.jp/books/9784873119540/)
+        - 今日話したことはだいたいこの本に載ってる。もっと難しい話も。誰か輪読会して欲しい
+- PostgreSQL
+    - [Database Page Layout](https://www.postgresql.org/docs/12/storage-page-layout.html)
+    - [［改訂新版］内部構造から学ぶPostgreSQL 設計・運用計画の鉄則](https://gihyo.jp/book/2018/978-4-297-10089-6)
+    - [The Internals of PostgreSQL : Chapter 1 Database Cluster, Databases, and Tables](https://www.interdb.jp/pg/pgsql01.html)
+    - [Indexes in PostgreSQL — 4 (Btree) : Postgres Professional](https://postgrespro.com/blog/pgsql/4161516)
+    - [PostgreSQL's indexes – BTrees internal data structure](http://www.louisemeta.com/blog/indexes-btree/)
+- MySQL
+    - [InnoDB page Header](https://dev.mysql.com/doc/internals/en/innodb-page-header.html)
+    - [実践ハイパフォーマンスMySQL 第3版](https://www.oreilly.co.jp/books/9784873116389/)
+- [Data Structure Visualization](https://www.cs.usfca.edu/~galles/visualization/Algorithms.html)
+    - 今回紹介したデータ構造可視化以外にもたくさんあるので遊んでみよう
